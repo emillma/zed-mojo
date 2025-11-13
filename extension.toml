@@ -7,8 +7,8 @@ authors = ["Ayush Shukla <ayush@shuklaayu.sh>"]
 repository = "https://github.com/shuklaayush/zed-mojo"
 
 [grammars.mojo]
-repository = "https://github.com/lsh/tree-sitter-mojo"
-commit = "564d5a8489e20e5f723020ae40308888699055c0"
+repository = "https://github.com/shuklaayush/tree-sitter-mojo"
+commit = "88e94a5aba70aa6d20e06fb3c9e6d18f1a61d615"
 
 [language_servers.mojo-lsp]
 name = "mojo-lsp"
