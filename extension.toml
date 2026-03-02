@@ -8,7 +8,7 @@ repository = "https://github.com/emillma/zed-mojo"
 
 [grammars.mojo]
 repository = "https://github.com/emillma/tree-sitter-mojo"
-commit = "94c4173fd07e4557b60da7c85f6c144b131b2c85"
+commit = "3783d6ceed2e28f10bd017bd53c438e79e02208c"
 
 [language_servers.mojo-lsp]
 name = "mojo-lsp"
