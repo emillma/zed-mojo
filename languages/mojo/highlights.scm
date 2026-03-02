@@ -5,6 +5,8 @@
 ; Function calls
 
 (decorator) @function
+(decorator
+  (identifier) @function)
 
 (call
   function: (attribute attribute: (identifier) @function.method))
@@ -68,7 +70,7 @@
   "def"
   name: (_)
   (parameters)?
-  body: (block (expression_statement (string) @string.doc)))
+  body: (block . (string) @string.doc))
 
 [
   "-"
@@ -159,6 +161,7 @@
   "yield"
   "match"
   "case"
+  "where"
 ] @keyword
 
 (mlir_type "!" @punctuation.special (#set! "priority" 110))
