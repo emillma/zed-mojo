@@ -101,9 +101,6 @@
   (class_definition
     body: (block
       . (string) @string.doc))
-  (struct_definition
-    body: (block
-      . (string) @string.doc))
   (trait_definition
     body: (block
       . (string) @string.doc))
@@ -189,16 +186,18 @@
   "yield"
 ] @keyword
 
-(raises_clause "raises" @keyword)
 (argument_convention) @keyword.modifier
-(capturing_clause "capturing" @keyword.modifier)
-(abi_clause "abi" @keyword.modifier)
-(ref_type "ref" @keyword.modifier)
-(generator_type "__generator_type" @type.builtin)
-(where_clause "where" @keyword)
-(where_expression "where" @keyword)
-(extension_definition "__extension" @keyword)
-(mlir_region_definition "__mlir_region" @keyword)
-(function_definition "thin" @keyword.modifier)
-(function_type "thin" @keyword.modifier)
-(lambda "thin" @keyword.modifier)
+"raises" @keyword
+"where" @keyword
+
+[
+  "capturing"
+  "escaping"
+  "thin"
+  "abi"
+  "ref"
+] @keyword.modifier
+
+"__generator_type" @type.builtin
+"__extension" @keyword
+"__mlir_region" @keyword

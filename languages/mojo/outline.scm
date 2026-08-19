@@ -1,6 +1,6 @@
 (decorator) @annotation
 
-(struct_definition
+(class_definition
   "struct" @context
   name: (identifier) @name) @item
 
@@ -10,14 +10,14 @@
 
 (extension_definition
   "__extension" @context
-  type: (_) @name) @item
+  name: (_) @name) @item
 
 (function_definition
   "async"? @context
   "def" @context
   name: (identifier) @name) @item
 
-(mlir_region_definition
+(mlir_region
   "__mlir_region" @context
   name: (identifier) @name) @item
 

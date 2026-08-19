@@ -9,7 +9,7 @@ snippets = ["./snippets/mojo.json"]
 
 [grammars.mojo]
 repository = "https://github.com/shuklaayush/tree-sitter-mojo"
-rev = "6ceed6a858eac70187f67910ad889da21644af5b"
+rev = "b73aae96d1c9d24f7aaa68c953dbb436e89808d0"
 
 [language_servers.mojo-lsp-server]
 name = "Mojo LSP"

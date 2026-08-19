@@ -3,8 +3,8 @@
 (_ "(" ")" @end) @indent
 
 (function_definition) @start.def
-(mlir_region_definition) @start.mlir_region
-(struct_definition) @start.struct
+(mlir_region) @start.mlir_region
+(class_definition) @start.struct
 (trait_definition) @start.trait
 (extension_definition) @start.extension
 (if_statement) @start.if
