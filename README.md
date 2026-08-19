@@ -4,10 +4,9 @@ Mojo language support for Zed, including current-syntax parsing, highlighting,
 outline and text objects, snippets, run tasks, `mojo-lsp-server`, and
 `lldb-dap`-based debugging.
 
-The extension follows the Mojo sources in the adjacent Modular repository and
-uses the maintained
-[`shuklaayush/tree-sitter-mojo`](https://github.com/shuklaayush/tree-sitter-mojo)
-grammar fork. Mojo currently supports macOS and Linux.
+Parsing uses
+[`shuklaayush/tree-sitter-mojo`](https://github.com/shuklaayush/tree-sitter-mojo).
+The extension supports macOS and Linux.
 
 ## Install for development
 
@@ -16,15 +15,6 @@ grammar fork. Mojo currently supports macOS and Linux.
 2. In Zed, run **Extensions: Install Dev Extension** and select this directory.
 3. Open a worktree whose root contains `pixi.toml`, a Pixi-enabled
    `pyproject.toml`, `uv.lock`, or the activated Mojo environment.
-
-The extension pins the newest published Zed extension API supported by both
-Zed Stable and Zed Preview. Do not replace it with Zed `main`: unpublished API
-versions load only in Zed Dev and Nightly.
-
-Zed's extension registry already assigns the public `mojo` ID to
-`vadim-su/zed_mojo`. This repository can override that extension locally for
-development, but publishing these changes under the same ID requires an
-upstream contribution or repository handoff.
 
 ## Language server
 
@@ -49,16 +39,11 @@ the executable explicitly:
         "env": {
           "CUSTOM_VARIABLE": "value"
         }
-      },
-      "initialization_options": {},
-      "settings": {}
+      }
     }
   }
 }
 ```
-
-The extension does not add the obsolete `--skip-docstring-checks` option. The
-current server's docstring check is opt-in with `-check-docstrings`.
 
 ## Format and run
 
@@ -82,18 +67,11 @@ For an activated SDK:
 Pixi projects can use `pixi run --frozen --no-progress --executable mojo
 format -`; uv projects can use `uv run --frozen mojo format -`.
 
-The bundled tasks provide activated-PATH, frozen Pixi, and frozen uv variants
-for running the current file. A top-level `def main` receives the `mojo-main`
-runnable tag; select the task matching the project's SDK when clicking its run
-indicator. The Pixi and uv variants run from the worktree root so Mojo package
-imports and root project discovery agree. The `mojo-source` debug locator
-converts all three task shapes into source-debug scenarios. It carries Mojo
-compiler options before the source into `buildArgs`, except optimization and
-debug-level overrides that would make breakpoints unreliable. It preserves
-arguments after the source as debuggee arguments and applies the task
-environment to both compilation and the debuggee, so project tasks such as
-`mojo run -I package "$ZED_FILE" --flag` keep their import path and program
-arguments while debugging.
+The bundled tasks provide activated-PATH, frozen Pixi, and frozen uv variants.
+Top-level `def main` run indicators let you choose among them. Debugging
+preserves compiler options before the source, program arguments after it, and
+the task environment; optimization and debug-level overrides are ignored so
+breakpoints remain reliable.
 
 If Pixi cannot discover the intended manifest from the worktree root—for
 example, the manifest is nested inside the worktree or lives in an unrelated
@@ -121,16 +99,14 @@ directory—override the runnable for that worktree in `.zed/tasks.json`:
 ]
 ```
 
-Worktree task bindings take precedence over the extension defaults. An
-external-manifest run override does not configure source debugging; activate
-that Pixi environment before launching Zed if the debugger also needs it.
+Worktree task bindings take precedence. External-manifest source debugging
+also requires that environment to be active when Zed starts.
 
 ## Debug
 
-The debugger prefers the project SDK's configured adapter, normally
-`mojo-lldb-dap` for a Pixi/Conda SDK or `lldb-dap` for a Python wheel. It loads
-the matching Mojo LLDB plugin and visualizers, supplies the SDK environment,
-and deliberately does not select an unrelated system `lldb-dap`.
+Debugger discovery uses the project SDK: `mojo-lldb-dap` for Pixi/Conda or
+`lldb-dap` for a Python wheel. It loads the matching Mojo plugin and
+visualizers.
 
 Debug a prebuilt executable:
 
@@ -160,18 +136,11 @@ Debug a source file directly:
 ]
 ```
 
-Source launch builds an executable in a private, unique temporary directory
-with `mojo build --no-optimization --debug-level full`, using the configured
-`cwd`; on macOS it also applies ad-hoc signing with the `get-task-allow`
-entitlement. The manifest declares narrowly matched `process:exec`
-capabilities for temporary-directory creation, building, and signing; source
-launch fails if you remove process execution from Zed's
-`granted_extension_capabilities`.
-Attach configurations accept `pid`, `program`, core-file, command, or
-remote-target fields from the schema. Configurations with `tcp_connection`
-connect to an already-running adapter and do not spawn a second process. They
-must use a prebuilt `program` visible to that adapter; local `mojoFile` builds
-and local SDK plugin injection are intentionally rejected for external TCP.
+Source launch uses `mojo build --no-optimization --debug-level full` and
+applies the required ad-hoc signing on macOS.
+
+TCP connections require an already-running adapter and a prebuilt program
+visible to it; source builds and local plugin injection are unavailable.
 
 ## Development
 
@@ -184,11 +153,7 @@ TREE_SITTER=/path/to/tree-sitter \
 scripts/check-all.sh
 ```
 
-It checks formatting, the `wasm32-wasip2` target, Clippy, host tests, release
-Wasm, Cargo metadata, TOML/JSON assets, the exact grammar revision, grammar
-corpus and bindings, bundled current examples, every supported tree-sitter
-query, current-Mojo syntax fixtures, and whitespace errors. See
-[AGENTS.md](AGENTS.md) for the dependency and grammar update procedure.
+See [AGENTS.md](AGENTS.md) for update and validation details.
 
 ## License
 
