@@ -14,4 +14,6 @@ path = "src/mojo.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-zed_extension_api = { git = "https://github.com/zed-industries/zed" }
+# Use the newest published API accepted by Stable and Preview builds of Zed.
+# Unreleased Git versions only load in Zed Dev and Nightly.
+zed_extension_api = "0.7.0"

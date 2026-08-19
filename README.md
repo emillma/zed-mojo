@@ -17,6 +17,10 @@ grammar fork. Mojo currently supports macOS and Linux.
 3. Open a worktree whose root contains `pixi.toml`, a Pixi-enabled
    `pyproject.toml`, `uv.lock`, or the activated Mojo environment.
 
+The extension pins the newest published Zed extension API supported by both
+Zed Stable and Zed Preview. Do not replace it with Zed `main`: unpublished API
+versions load only in Zed Dev and Nightly.
+
 Zed's extension registry already assigns the public `mojo` ID to
 `vadim-su/zed_mojo`. This repository can override that extension locally for
 development, but publishing these changes under the same ID requires an
@@ -123,11 +127,10 @@ that Pixi environment before launching Zed if the debugger also needs it.
 
 ## Debug
 
-The debugger prefers the project SDK's `lldb-dap`, loads the Mojo LLDB plugin
-and visualizers when their paths can be derived from `modular.cfg` or a wheel
-layout, supplies the Pixi/Conda SDK environment required by current debugger
-tools, and falls back to the legacy `mojo-lldb-dap` wrapper. It deliberately
-does not select an unrelated system `lldb-dap`.
+The debugger prefers the project SDK's configured adapter, normally
+`mojo-lldb-dap` for a Pixi/Conda SDK or `lldb-dap` for a Python wheel. It loads
+the matching Mojo LLDB plugin and visualizers, supplies the SDK environment,
+and deliberately does not select an unrelated system `lldb-dap`.
 
 Debug a prebuilt executable:
 

@@ -87,26 +87,82 @@ impl MojoExtension {
         environment_root: &str,
         command: &str,
     ) -> Option<String> {
-        worktree.which(&Self::environment_binary(environment_root, command))
+        let environment_root = if environment_root.starts_with('/') {
+            environment_root.to_string()
+        } else {
+            format!("{}/{environment_root}", worktree.root_path())
+        };
+        worktree.which(&Self::environment_binary(&environment_root, command))
+    }
+
+    fn library_extension() -> &'static str {
+        match zed::current_platform().0 {
+            zed::Os::Mac => "dylib",
+            _ => "so",
+        }
+    }
+
+    fn path_separator() -> &'static str {
+        match zed::current_platform().0 {
+            zed::Os::Windows => ";",
+            _ => ":",
+        }
+    }
+
+    fn derived_pixi_debug_paths(worktree: &zed::Worktree) -> (Option<String>, Option<String>) {
+        let sdk_root = format!("{}/.pixi/envs/default", worktree.root_path());
+        let plugin = worktree.which(&format!(
+            "{sdk_root}/lib/libMojoLLDB.{extension}",
+            extension = Self::library_extension()
+        ));
+        let visualizers = worktree
+            .which(&format!(
+                "{sdk_root}/lib/lldb-visualizers/lldbDataFormatters.py"
+            ))
+            .map(|_| format!("{sdk_root}/lib/lldb-visualizers"));
+        (plugin, visualizers)
     }
 
     fn pixi_sdk_env(worktree: &zed::Worktree) -> Vec<(String, String)> {
         let sdk_root = format!("{}/.pixi/envs/default", worktree.root_path());
+        let sdk_bin = format!("{sdk_root}/{}", Self::platform_bin_dir());
+        let path = Self::shell_env_value(worktree, "PATH")
+            .filter(|path| !path.is_empty())
+            .map(|path| format!("{sdk_bin}{}{path}", Self::path_separator()))
+            .unwrap_or(sdk_bin);
         let mut envs = vec![
             ("MODULAR_HOME".into(), format!("{sdk_root}/share/max")),
             ("CONDA_PREFIX".into(), sdk_root),
+            ("PATH".into(), path),
         ];
-        if let Ok(config) = worktree.read_text_file(".pixi/envs/default/share/max/modular.cfg") {
-            for (key, variable) in [
-                ("lldb_plugin_path", "MODULAR_MOJO_MAX_LLDB_PLUGIN_PATH"),
-                (
-                    "lldb_visualizers_path",
-                    "MODULAR_MOJO_MAX_LLDB_VISUALIZERS_PATH",
-                ),
-            ] {
-                if let Some(value) = Self::config_value(&config, "mojo-max", key) {
-                    envs.push((variable.into(), value));
-                }
+        let config = worktree
+            .read_text_file(".pixi/envs/default/share/max/modular.cfg")
+            .ok();
+        let configured = |key| {
+            config
+                .as_deref()
+                .and_then(|contents| Self::config_value(contents, "mojo-max", key))
+        };
+        let (derived_plugin, derived_visualizers) = Self::derived_pixi_debug_paths(worktree);
+        let configured_plugin =
+            configured("lldb_plugin_path").and_then(|path| worktree.which(&path));
+        let configured_visualizers = configured("lldb_visualizers_path").and_then(|path| {
+            worktree
+                .which(&format!("{path}/lldbDataFormatters.py"))
+                .map(|_| path)
+        });
+        for (value, variable) in [
+            (
+                configured_plugin.or(derived_plugin),
+                "MODULAR_MOJO_MAX_LLDB_PLUGIN_PATH",
+            ),
+            (
+                configured_visualizers.or(derived_visualizers),
+                "MODULAR_MOJO_MAX_LLDB_VISUALIZERS_PATH",
+            ),
+        ] {
+            if let Some(value) = value {
+                envs.push((variable.into(), value));
             }
         }
         envs
@@ -116,10 +172,6 @@ impl MojoExtension {
         let Some(version) = Self::python_version(worktree) else {
             return Vec::new();
         };
-        let library_extension = match zed::current_platform().0 {
-            zed::Os::Mac => "dylib",
-            _ => "so",
-        };
         let modular_lib = format!(
             "{}/.venv/lib/python{version}/site-packages/modular/lib",
             worktree.root_path()
@@ -127,7 +179,10 @@ impl MojoExtension {
         vec![
             (
                 "MODULAR_MOJO_MAX_LLDB_PLUGIN_PATH".into(),
-                format!("{modular_lib}/libMojoLLDB.{library_extension}"),
+                format!(
+                    "{modular_lib}/libMojoLLDB.{extension}",
+                    extension = Self::library_extension()
+                ),
             ),
             (
                 "MODULAR_MOJO_MAX_LLDB_VISUALIZERS_PATH".into(),
@@ -211,12 +266,27 @@ impl MojoExtension {
                 .as_deref()
                 .and_then(|contents| Self::config_value(contents, "mojo-max", key))
         };
-        let plugin_path = configured("lldb_plugin_path");
-        let visualizers_path = configured("lldb_visualizers_path");
-        let command = configured("lldb_vscode_path")
+        let (derived_plugin, derived_visualizers) = Self::derived_pixi_debug_paths(worktree);
+        let plugin_path = configured("lldb_plugin_path")
             .and_then(|path| worktree.which(&path))
-            .or_else(|| Self::project_binary(worktree, ".pixi/envs/default", "lldb-dap"))?;
-        let mut spec = Self::debug_adapter_spec(command, plugin_path, visualizers_path);
+            .or(derived_plugin)?;
+        let visualizers_path = configured("lldb_visualizers_path")
+            .and_then(|path| {
+                worktree
+                    .which(&format!("{path}/lldbDataFormatters.py"))
+                    .map(|_| path)
+            })
+            .or(derived_visualizers);
+        let configured_command =
+            configured("lldb_vscode_path").and_then(|path| worktree.which(&path));
+        let legacy_command =
+            Self::project_binary(worktree, ".pixi/envs/default", LEGACY_DAP_BINARY);
+        let plain_command = Self::project_binary(worktree, ".pixi/envs/default", "lldb-dap");
+        // Current Mojo SDK packages expose `mojo-lldb-dap`, which relies on
+        // CONDA_PREFIX and imports the SDK visualizers. Prefer it to a plain
+        // lldb-dap, which is only safe once the matching Mojo plugin exists.
+        let command = configured_command.or(legacy_command).or(plain_command)?;
+        let mut spec = Self::debug_adapter_spec(command, Some(plugin_path), visualizers_path);
         spec.envs = Self::pixi_sdk_env(worktree);
         Some(spec)
     }

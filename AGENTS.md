@@ -24,7 +24,6 @@ git status --short
 git config user.name
 git config user.email
 rustc --version
-git ls-remote https://github.com/zed-industries/zed.git refs/heads/main
 git ls-remote https://github.com/shuklaayush/tree-sitter-mojo.git refs/heads/main
 ```
 
@@ -35,11 +34,14 @@ git ls-remote https://github.com/shuklaayush/tree-sitter-mojo.git refs/heads/mai
 2. Set the exact release in both `rust-toolchain.toml` and
    `package.rust-version` in `Cargo.toml`. Keep `rustfmt`, `clippy`, and the
    `wasm32-wasip2` target.
-3. Run `cargo update`. The unversioned Zed Git dependency should advance to
-   current Zed `main`.
-4. Confirm the `zed_extension_api` source SHA in `Cargo.lock` equals the live
-   Zed SHA. Never hand-edit the lockfile.
-5. Adapt `src/mojo.rs` to the pinned API. Check Zed core behavior as well as
+3. Check the latest published `zed_extension_api` release and the compatibility
+   table in Zed's `crates/extension_api/README.md`, then run `cargo update`.
+   Pin the newest published API supported by Zed Stable and Preview. Do not use
+   Zed `main` or another unpublished API: Stable and Preview refuse to load it.
+4. Confirm `Cargo.lock` resolves `zed_extension_api` from crates.io at that
+   exact version. Never hand-edit the lockfile.
+5. Adapt `src/mojo.rs` to the pinned API. Check the matching released Zed core
+   behavior as well as
    public types: Zed merges the worktree environment and reapplies
    `LspSettings.binary` after the extension callback.
 6. Finish with `cargo update --dry-run`; it should report zero updates.
@@ -99,8 +101,9 @@ when the grammar generator changes. Avoid unpinned action tags.
   layouts; activated Conda is PATH-based. Do not run unqualified `conda run`.
 - Never add `--skip-docstring-checks`; current Mojo uses opt-in
   `-check-docstrings`.
-- Prefer the SDK `lldb-dap`, pass `--repl-mode variable`, load the Mojo LLDB
-  plugin/visualizers, and keep legacy `mojo-lldb-dap` only as fallback.
+- Prefer the SDK's configured adapter (`mojo-lldb-dap` for current Pixi/Conda
+  packages or `lldb-dap` for wheel layouts), pass `--repl-mode variable`, and
+  load the matching Mojo LLDB plugin/visualizers.
 - A `mojoFile` must be compiled with `--no-optimization --debug-level full`
   before launch and codesigned with `get-task-allow` on macOS. LLDB cannot run a
   `.mojo` source file directly.

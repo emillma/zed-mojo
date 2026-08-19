@@ -24,12 +24,23 @@ def load_json(path: pathlib.Path) -> object:
 
 extension = load_toml("extension.toml")
 cargo = load_toml("Cargo.toml")
+cargo_lock = load_toml("Cargo.lock")
 toolchain = load_toml("rust-toolchain.toml")
 language = load_toml("languages/mojo/config.toml")
 
 assert extension["version"] == cargo["package"]["version"]
 assert cargo["package"]["rust-version"] == toolchain["toolchain"]["channel"]
 assert "wasm32-wasip2" in toolchain["toolchain"]["targets"]
+zed_api_version = cargo["dependencies"]["zed_extension_api"]
+assert isinstance(zed_api_version, str), "zed_extension_api must be a published release"
+zed_api_packages = [
+    package
+    for package in cargo_lock["package"]
+    if package["name"] == "zed_extension_api"
+]
+assert len(zed_api_packages) == 1
+assert zed_api_packages[0]["version"] == zed_api_version
+assert zed_api_packages[0]["source"].startswith("registry+")
 assert extension["language_servers"]["mojo-lsp-server"]["languages"] == ["Mojo"]
 assert "mojo-source" in extension["debug_locators"]
 assert language["debuggers"] == ["mojo-lldb"]
