@@ -1,6 +1,6 @@
 [
   {
-    "label": "mojo run current file",
+    "label": "Mojo: run current file (activated PATH)",
     "command": "mojo",
     "args": ["run", "$ZED_FILE"],
     "cwd": "$ZED_WORKTREE_ROOT",
@@ -12,7 +12,7 @@
     "tags": ["mojo-main"]
   },
   {
-    "label": "pixi run mojo current file",
+    "label": "Mojo: run current file (Pixi)",
     "command": "pixi",
     "args": ["run", "--frozen", "--no-progress", "--executable", "mojo", "run", "$ZED_FILE"],
     "cwd": "$ZED_WORKTREE_ROOT",
@@ -20,10 +20,11 @@
     "use_new_terminal": false,
     "allow_concurrent_runs": false,
     "reveal": "always",
-    "hide": "never"
+    "hide": "never",
+    "tags": ["mojo-main"]
   },
   {
-    "label": "uv run mojo current file",
+    "label": "Mojo: run current file (uv)",
     "command": "uv",
     "args": ["run", "--frozen", "mojo", "run", "$ZED_FILE"],
     "cwd": "$ZED_WORKTREE_ROOT",
@@ -31,6 +32,7 @@
     "use_new_terminal": false,
     "allow_concurrent_runs": false,
     "reveal": "always",
-    "hide": "never"
+    "hide": "never",
+    "tags": ["mojo-main"]
   }
 ]

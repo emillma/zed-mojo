@@ -80,8 +80,40 @@ format -`; uv projects can use `uv run --frozen mojo format -`.
 
 The bundled tasks provide activated-PATH, frozen Pixi, and frozen uv variants
 for running the current file. A top-level `def main` receives the `mojo-main`
-runnable tag and uses the activated-PATH task by default. The `mojo-source`
-debug locator converts all three task shapes into source-debug scenarios.
+runnable tag; select the task matching the project's SDK when clicking its run
+indicator. The Pixi and uv variants run from the worktree root so Mojo package
+imports and root project discovery agree. The `mojo-source` debug locator
+converts all three task shapes into source-debug scenarios.
+
+If Pixi cannot discover the intended manifest from the worktree root—for
+example, the manifest is nested inside the worktree or lives in an unrelated
+directory—override the runnable for that worktree in `.zed/tasks.json`:
+
+```json
+[
+  {
+    "label": "Mojo: run current file (external Pixi manifest)",
+    "command": "pixi",
+    "args": [
+      "run",
+      "--manifest-path",
+      "/path/to/pixi.toml",
+      "--frozen",
+      "--no-progress",
+      "--executable",
+      "mojo",
+      "run",
+      "$ZED_FILE"
+    ],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "tags": ["mojo-main"]
+  }
+]
+```
+
+Worktree task bindings take precedence over the extension defaults. An
+external-manifest run override does not configure source debugging; activate
+that Pixi environment before launching Zed if the debugger also needs it.
 
 ## Debug
 

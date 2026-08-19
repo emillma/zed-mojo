@@ -66,7 +66,30 @@ for relative in extension.get("snippets", []):
     serialized = json.dumps(snippets)
     for stale in ("fn ", "alias ", "__del__", "deinit take"):
         assert stale not in serialized, f"stale Mojo syntax in snippets: {stale}"
-load_json(ROOT / "languages/mojo/tasks.json")
+tasks = load_json(ROOT / "languages/mojo/tasks.json")
+assert isinstance(tasks, list)
+assert len(tasks) == 3
+assert all(task.get("tags") == ["mojo-main"] for task in tasks)
+tasks_by_command = {task["command"]: task for task in tasks}
+assert set(tasks_by_command) == {"mojo", "pixi", "uv"}
+assert tasks_by_command["mojo"]["args"] == ["run", "$ZED_FILE"]
+assert tasks_by_command["pixi"]["args"] == [
+    "run",
+    "--frozen",
+    "--no-progress",
+    "--executable",
+    "mojo",
+    "run",
+    "$ZED_FILE",
+]
+assert tasks_by_command["uv"]["args"] == [
+    "run",
+    "--frozen",
+    "mojo",
+    "run",
+    "$ZED_FILE",
+]
+assert all(task["cwd"] == "$ZED_WORKTREE_ROOT" for task in tasks)
 load_json(ROOT / extension["debug_adapters"]["mojo-lldb"]["schema_path"])
 
 print("extension metadata and JSON assets are valid")
