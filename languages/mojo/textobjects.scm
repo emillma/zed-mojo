@@ -1,7 +1,18 @@
 (comment)+ @comment.around
 
 (function_definition
-  body: (_) @function.inside) @function.around
+  body: (block) @function.inside) @function.around
 
-(class_definition
-  body: (_) @class.inside) @class.around
+(mlir_region_definition
+  body: (block) @function.inside) @function.around
+
+[
+  (class_definition
+    body: (block) @class.inside)
+  (struct_definition
+    body: (block) @class.inside)
+  (trait_definition
+    body: (block) @class.inside)
+  (extension_definition
+    body: (block) @class.inside)
+] @class.around

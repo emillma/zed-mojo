@@ -1,18 +1,59 @@
 id = "mojo"
 name = "Mojo"
-description = "Mojo support."
-version = "0.0.1"
+description = "Mojo language support for Zed"
+version = "0.1.0"
 schema_version = 1
 authors = ["Ayush Shukla <ayush@shuklaayu.sh>"]
 repository = "https://github.com/shuklaayush/zed-mojo"
+snippets = ["./snippets/mojo.json"]
 
 [grammars.mojo]
 repository = "https://github.com/shuklaayush/tree-sitter-mojo"
-commit = "88e94a5aba70aa6d20e06fb3c9e6d18f1a61d615"
+rev = "6ceed6a858eac70187f67910ad889da21644af5b"
 
-[language_servers.mojo-lsp]
-name = "mojo-lsp"
-language = "Mojo"
+[language_servers.mojo-lsp-server]
+name = "Mojo LSP"
+languages = ["Mojo"]
 
 [debug_adapters.mojo-lldb]
 schema_path = "debug_adapter_schemas/mojo-lldb.json"
+
+[debug_locators.mojo-source]
+
+[[capabilities]]
+kind = "process:exec"
+command = "/usr/bin/mktemp"
+args = ["-d", "/tmp/zed-mojo.XXXXXXXXXX"]
+
+[[capabilities]]
+kind = "process:exec"
+command = "/bin/sh"
+args = [
+  "-c",
+  '''set -eu
+cd "$1"
+shift
+exec "$@"''',
+  "zed-mojo-build",
+  "*",
+  "*",
+  "build",
+  "--no-optimization",
+  "--debug-level",
+  "full",
+  "**",
+]
+
+[[capabilities]]
+kind = "process:exec"
+command = "/bin/sh"
+args = [
+  "-c",
+  '''set -eu
+entitlements="$1.entitlements.plist"
+printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' '<plist version="1.0"><dict><key>com.apple.security.get-task-allow</key><true/></dict></plist>' > "$entitlements"
+/usr/bin/codesign -s - -f --entitlements "$entitlements" "$1"
+rm -f "$entitlements"''',
+  "zed-mojo-codesign",
+  "*",
+]

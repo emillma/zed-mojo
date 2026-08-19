@@ -7,7 +7,18 @@
     },
     "program": {
       "type": "string",
-      "description": "Path to the program to debug or attach to"
+      "description": "Path to a prebuilt Mojo executable to debug or attach to"
+    },
+    "mojoFile": {
+      "type": "string",
+      "description": "Path to a .mojo or .🔥 source file. The extension builds it without optimization and with full debug information before launch"
+    },
+    "buildArgs": {
+      "type": ["array", "string"],
+      "description": "Additional arguments passed to `mojo build` when `mojoFile` is used",
+      "items": {
+        "type": "string"
+      }
     },
     "args": {
       "type": "array",
@@ -22,7 +33,7 @@
     },
     "env": {
       "type": "object",
-      "description": "Environment variables to set when launching the program. The format of each environment variable string is \"VAR=VALUE\" for environment variables with values or just \"VAR\" for environment variables with no values",
+      "description": "Environment variable names mapped to values for the launched program",
       "patternProperties": {
         ".*": {
           "type": "string"
@@ -38,6 +49,18 @@
       "type": "boolean",
       "description": "Launch the program inside an integrated terminal in the IDE. Useful for debugging interactive command line programs",
       "default": false
+    },
+    "console": {
+      "type": "string",
+      "enum": ["internalConsole", "integratedTerminal", "externalTerminal"],
+      "description": "Where to launch the program. Supported by lldb-dap 21 and newer"
+    },
+    "stdio": {
+      "type": "array",
+      "description": "Paths, named pipes, or TTY devices for stdin, stdout, stderr, and optional additional file descriptors. Use null for the default debug terminal",
+      "items": {
+        "type": ["string", "null"]
+      }
     },
     "sourcePath": {
       "type": "string",
@@ -161,6 +184,10 @@
     },
     "gdb-remote-hostname": {
       "type": "string",
+      "description": "Legacy hostname key for connecting to a debug server on another machine. Prefer gdb-remote-host"
+    },
+    "gdb-remote-host": {
+      "type": "string",
       "description": "Hostname for connecting to a debug server on another machine. Defaults to localhost"
     }
   },
@@ -175,9 +202,12 @@
         }
       },
       "then": {
-        "oneOf": [
+        "anyOf": [
           {
             "required": ["program"]
+          },
+          {
+            "required": ["mojoFile"]
           },
           {
             "required": ["launchCommands"]

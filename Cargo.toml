@@ -3,6 +3,11 @@ name = "zed-mojo"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
+authors = ["Ayush Shukla <ayush@shuklaayu.sh>"]
+description = "Mojo language support for Zed"
+repository = "https://github.com/shuklaayush/zed-mojo"
+rust-version = "1.97.1"
+publish = false
 
 [lib]
 path = "src/mojo.rs"

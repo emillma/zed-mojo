@@ -1,0 +1,109 @@
+{
+  "Main function": {
+    "prefix": "main",
+    "body": ["def main():", "    ${0:pass}"],
+    "description": "Create a Mojo entry point"
+  },
+  "Raising main function": {
+    "prefix": "mainr",
+    "body": ["def main() raises:", "    ${0:pass}"],
+    "description": "Create a raising Mojo entry point"
+  },
+  "Function": {
+    "prefix": "def",
+    "body": ["def ${1:name}(${2})${3}:", "    ${0:pass}"],
+    "description": "Create a Mojo function"
+  },
+  "Raising function": {
+    "prefix": "defr",
+    "body": ["def ${1:name}(${2}) raises${3}:", "    ${0:pass}"],
+    "description": "Create a function that can raise"
+  },
+  "Method": {
+    "prefix": "method",
+    "body": ["def ${1:name}(self${2})${3}:", "    ${0:pass}"],
+    "description": "Create an immutable instance method"
+  },
+  "Mutating method": {
+    "prefix": "mutmethod",
+    "body": ["def ${1:name}(mut self${2})${3}:", "    ${0:pass}"],
+    "description": "Create a mutating instance method"
+  },
+  "Initializer": {
+    "prefix": "init",
+    "body": ["def __init__(out self${1}):", "    ${0:pass}"],
+    "description": "Create an initializer"
+  },
+  "Copy initializer": {
+    "prefix": "copyinit",
+    "body": ["def __init__(out self, *, copy: Self):", "    ${0:pass}"],
+    "description": "Create a copy initializer"
+  },
+  "Move initializer": {
+    "prefix": "moveinit",
+    "body": ["def __init__(out self, *, deinit move: Self):", "    ${0:pass}"],
+    "description": "Create a move initializer"
+  },
+  "Deinitializer": {
+    "prefix": "deinit",
+    "body": ["def __deinit__(deinit self):", "    ${0:pass}"],
+    "description": "Create a deinitializer"
+  },
+  "Struct": {
+    "prefix": "struct",
+    "body": [
+      "struct ${1:Name}:",
+      "    var ${2:field}: ${3:Int}",
+      "",
+      "    def __init__(out self, ${2:field}: ${3:Int}):",
+      "        self.${2:field} = ${2:field}",
+      "        $0"
+    ],
+    "description": "Create a struct with one field and initializer"
+  },
+  "Fieldwise struct": {
+    "prefix": "fieldwise",
+    "body": ["@fieldwise_init", "struct ${1:Name}:", "    var ${2:field}: ${3:Type}", "    $0"],
+    "description": "Create a struct using @fieldwise_init"
+  },
+  "Trait": {
+    "prefix": "trait",
+    "body": ["trait ${1:Name}:", "    def ${2:method}(self)${3}: ...", "    $0"],
+    "description": "Create a trait requirement"
+  },
+  "Comptime declaration": {
+    "prefix": "comptime",
+    "body": ["comptime ${1:Name} = ${2:0}"],
+    "description": "Create a compile-time declaration"
+  },
+  "For loop": {
+    "prefix": "for",
+    "body": ["for ${1:item} in ${2:items}:", "    ${0:pass}"],
+    "description": "Create a for loop"
+  },
+  "While loop": {
+    "prefix": "while",
+    "body": ["while ${1:condition}:", "    ${0:pass}"],
+    "description": "Create a while loop"
+  },
+  "If statement": {
+    "prefix": "if",
+    "body": ["if ${1:condition}:", "    ${0:pass}"],
+    "description": "Create an if statement"
+  },
+  "Try except": {
+    "prefix": "try",
+    "body": ["try:", "    $1", "except ${2:error}:", "    $0"],
+    "description": "Create a try/except block"
+  },
+  "Raise error": {
+    "prefix": "raise",
+    "body": ["raise Error(\"${1:message}\")"],
+    "description": "Raise a Mojo Error"
+  },
+  "Test function": {
+    "prefix": "test",
+    "body": ["def test_${1:name}() raises:", "    ${0:pass}"],
+    "description": "Create a Mojo test function"
+  }
+}

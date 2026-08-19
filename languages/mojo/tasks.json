@@ -1,0 +1,36 @@
+[
+  {
+    "label": "mojo run current file",
+    "command": "mojo",
+    "args": ["run", "$ZED_FILE"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "save": "current",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never",
+    "tags": ["mojo-main"]
+  },
+  {
+    "label": "pixi run mojo current file",
+    "command": "pixi",
+    "args": ["run", "--frozen", "--no-progress", "--executable", "mojo", "run", "$ZED_FILE"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "save": "current",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never"
+  },
+  {
+    "label": "uv run mojo current file",
+    "command": "uv",
+    "args": ["run", "--frozen", "mojo", "run", "$ZED_FILE"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "save": "current",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "hide": "never"
+  }
+]
