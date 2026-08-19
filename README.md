@@ -83,7 +83,13 @@ for running the current file. A top-level `def main` receives the `mojo-main`
 runnable tag; select the task matching the project's SDK when clicking its run
 indicator. The Pixi and uv variants run from the worktree root so Mojo package
 imports and root project discovery agree. The `mojo-source` debug locator
-converts all three task shapes into source-debug scenarios.
+converts all three task shapes into source-debug scenarios. It carries Mojo
+compiler options before the source into `buildArgs`, except optimization and
+debug-level overrides that would make breakpoints unreliable. It preserves
+arguments after the source as debuggee arguments and applies the task
+environment to both compilation and the debuggee, so project tasks such as
+`mojo run -I package "$ZED_FILE" --flag` keep their import path and program
+arguments while debugging.
 
 If Pixi cannot discover the intended manifest from the worktree root—for
 example, the manifest is nested inside the worktree or lives in an unrelated

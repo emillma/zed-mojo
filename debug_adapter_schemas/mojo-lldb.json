@@ -15,7 +15,7 @@
     },
     "buildArgs": {
       "type": ["array", "string"],
-      "description": "Additional arguments passed to `mojo build` when `mojoFile` is used",
+      "description": "Additional arguments passed to `mojo build` when `mojoFile` is used. Optimization and debug-level overrides are ignored so source breakpoints remain reliable",
       "items": {
         "type": "string"
       }
@@ -33,7 +33,7 @@
     },
     "env": {
       "type": "object",
-      "description": "Environment variable names mapped to values for the launched program",
+      "description": "Environment variable names mapped to values for the launched program and, when `mojoFile` is used, its source compilation",
       "patternProperties": {
         ".*": {
           "type": "string"

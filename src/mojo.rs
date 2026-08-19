@@ -35,6 +35,13 @@ struct DebugAdapterSpec {
     visualizers_path: Option<String>,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+struct MojoRunTask {
+    source: String,
+    build_args: Vec<String>,
+    program_args: Vec<String>,
+}
+
 impl MojoExtension {
     fn has_project_file(worktree: &zed::Worktree, path: &str) -> bool {
         worktree.read_text_file(path).is_ok()
@@ -310,25 +317,103 @@ impl MojoExtension {
             .map(|path| Self::debug_adapter_spec(path, None, None))
     }
 
-    fn task_source(task: &TaskTemplate) -> Option<String> {
-        let args = task.args.iter().map(String::as_str).collect::<Vec<_>>();
-        match (task.command.as_str(), args.as_slice()) {
-            ("mojo", ["run", source]) => Some((*source).to_string()),
-            (
-                "pixi",
-                [
-                    "run",
-                    "--frozen",
-                    "--no-progress",
-                    "--executable",
-                    "mojo",
-                    "run",
-                    source,
-                ],
-            ) => Some((*source).to_string()),
-            ("uv", ["run", "--frozen", "mojo", "run", source]) => Some((*source).to_string()),
-            _ => None,
+    fn command_name(command: &str) -> &str {
+        let name = command.rsplit(['/', '\\']).next().unwrap_or(command);
+        name.strip_suffix(".exe").unwrap_or(name)
+    }
+
+    fn task_source_argument(argument: &str) -> Option<String> {
+        let argument = argument
+            .strip_prefix('"')
+            .and_then(|argument| argument.strip_suffix('"'))
+            .unwrap_or(argument);
+        (matches!(
+            argument,
+            "$ZED_FILE" | "${ZED_FILE}" | "$ZED_RELATIVE_FILE" | "${ZED_RELATIVE_FILE}"
+        ) || Self::is_mojo_source(argument))
+        .then(|| argument.to_string())
+    }
+
+    fn task_mojo_run_args(task: &TaskTemplate) -> Option<&[String]> {
+        let command = Self::command_name(&task.command);
+        let prefix: &[&str] = match command {
+            "mojo" => &["run"],
+            "pixi" => &[
+                "run",
+                "--frozen",
+                "--no-progress",
+                "--executable",
+                "mojo",
+                "run",
+            ],
+            "uv" => &["run", "--frozen", "mojo", "run"],
+            _ => return None,
+        };
+        if task.args.len() < prefix.len()
+            || !task
+                .args
+                .iter()
+                .zip(prefix)
+                .all(|(argument, expected)| argument == expected)
+        {
+            return None;
         }
+        Some(&task.args[prefix.len()..])
+    }
+
+    fn is_zed_file_variable(argument: &str) -> bool {
+        matches!(
+            argument.trim_matches('"'),
+            "$ZED_FILE" | "${ZED_FILE}" | "$ZED_RELATIVE_FILE" | "${ZED_RELATIVE_FILE}"
+        )
+    }
+
+    fn debug_build_arguments(arguments: &[String]) -> Vec<String> {
+        let mut filtered = Vec::new();
+        let mut arguments = arguments.iter();
+        while let Some(argument) = arguments.next() {
+            if matches!(
+                argument.as_str(),
+                "-O" | "--optimization-level"
+                    | "-optimization-level"
+                    | "--debug-level"
+                    | "-debug-level"
+            ) {
+                // These options consume their value as the next argument.
+                arguments.next();
+                continue;
+            }
+            if matches!(argument.as_str(), "--no-optimization" | "-no-optimization")
+                || argument.starts_with("--optimization-level=")
+                || argument.starts_with("-optimization-level=")
+                || argument.starts_with("--debug-level=")
+                || argument.starts_with("-debug-level=")
+                || (argument.starts_with("-O") && argument.len() > 2)
+                || argument.starts_with("-g")
+            {
+                continue;
+            }
+            filtered.push(argument.clone());
+        }
+        filtered
+    }
+
+    fn task_mojo_run(task: &TaskTemplate) -> Option<MojoRunTask> {
+        let args = Self::task_mojo_run_args(task)?;
+        // Zed variables identify the source unambiguously, even if a compiler
+        // option happens to contain another path ending in `.mojo`.
+        let source = args
+            .iter()
+            .position(|argument| Self::is_zed_file_variable(argument))
+            .or_else(|| {
+                args.iter()
+                    .position(|argument| Self::is_mojo_source(argument.trim_matches('"')))
+            })?;
+        Some(MojoRunTask {
+            source: Self::task_source_argument(&args[source])?,
+            build_args: Self::debug_build_arguments(&args[..source]),
+            program_args: args[source + 1..].to_vec(),
+        })
     }
 
     fn quoted_python_string(value: &str) -> String {
@@ -379,7 +464,7 @@ impl MojoExtension {
     }
 
     fn build_arguments(config: &Value) -> Result<Vec<String>> {
-        match config.get("buildArgs") {
+        let arguments = match config.get("buildArgs") {
             None => Ok(Vec::new()),
             Some(Value::String(argument)) => Ok(vec![argument.clone()]),
             Some(Value::Array(arguments)) => arguments
@@ -392,6 +477,23 @@ impl MojoExtension {
                 })
                 .collect(),
             Some(_) => Err("Mojo `buildArgs` must be a string or array of strings".into()),
+        }?;
+        Ok(Self::debug_build_arguments(&arguments))
+    }
+
+    fn config_environment(config: &Value) -> Result<Vec<(String, String)>> {
+        match config.get("env") {
+            None => Ok(Vec::new()),
+            Some(Value::Object(environment)) => environment
+                .iter()
+                .map(|(name, value)| {
+                    value
+                        .as_str()
+                        .map(|value| (name.clone(), value.to_string()))
+                        .ok_or_else(|| "Every Mojo debug `env` value must be a string".to_string())
+                })
+                .collect(),
+            Some(_) => Err("Mojo debug `env` must be an object of string values".into()),
         }
     }
 
@@ -484,6 +586,7 @@ impl MojoExtension {
         })?;
         let build_cwd = Self::build_cwd(worktree, config)?;
         let build_arguments = Self::build_arguments(config)?;
+        let config_environment = Self::config_environment(config)?;
         let binary = Self::debug_binary_path(&source)?;
         let mut args = vec![
             "build".into(),
@@ -495,6 +598,9 @@ impl MojoExtension {
         args.extend([source, "-o".into(), binary.clone()]);
         let mut envs = worktree.shell_env();
         envs.extend(mojo.envs);
+        // Match the compilation environment to the debuggee environment.
+        // Task/config values deliberately win over the detected SDK defaults.
+        envs.extend(config_environment);
         Self::run_process(
             ProcessCommand::new("/bin/sh")
                 .args(
@@ -740,12 +846,18 @@ impl zed::Extension for MojoExtension {
         if locator_name != DEBUG_LOCATOR_ID || debug_adapter_name != DEBUG_ADAPTER_ID {
             return None;
         }
-        let source = Self::task_source(&task)?;
+        let run = Self::task_mojo_run(&task)?;
         let mut config = serde_json::json!({
             "request": "launch",
-            "mojoFile": source,
+            "mojoFile": run.source,
         });
         let map = config.as_object_mut()?;
+        if !run.build_args.is_empty() {
+            map.insert("buildArgs".into(), run.build_args.into());
+        }
+        if !run.program_args.is_empty() {
+            map.insert("args".into(), run.program_args.into());
+        }
         if let Some(cwd) = task.cwd {
             map.insert("cwd".into(), cwd.into());
         }
@@ -775,6 +887,7 @@ zed::register_extension!(MojoExtension);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use zed::Extension as _;
 
     #[test]
     fn parses_launch_and_attach_requests() {
@@ -829,7 +942,33 @@ mod tests {
             MojoExtension::build_arguments(&serde_json::json!({ "buildArgs": ["-I", "lib"] })),
             Ok(vec!["-I".into(), "lib".into()])
         );
+        assert_eq!(
+            MojoExtension::build_arguments(&serde_json::json!({
+                "buildArgs": [
+                    "-O", "1", "-O3", "--optimization-level", "2",
+                    "--optimization-level=1", "--no-optimization",
+                    "-g", "-g0", "--debug-level", "line-tables",
+                    "--debug-level=none", "-optimization-level=3",
+                    "-debug-level", "none", "-no-optimization", "-I", "lib"
+                ]
+            })),
+            Ok(vec!["-I".into(), "lib".into()])
+        );
         assert!(MojoExtension::build_arguments(&serde_json::json!({ "buildArgs": [1] })).is_err());
+    }
+
+    #[test]
+    fn validates_debug_environment() {
+        assert_eq!(
+            MojoExtension::config_environment(
+                &serde_json::json!({ "env": { "MOJO_ENABLE_ASSERTIONS": "1" } })
+            ),
+            Ok(vec![("MOJO_ENABLE_ASSERTIONS".into(), "1".into())])
+        );
+        assert!(MojoExtension::config_environment(&serde_json::json!({ "env": [] })).is_err());
+        assert!(
+            MojoExtension::config_environment(&serde_json::json!({ "env": { "KEY": 1 } })).is_err()
+        );
     }
 
     #[test]
@@ -864,7 +1003,7 @@ mod tests {
     }
 
     #[test]
-    fn recognizes_bundled_run_tasks_for_debugging() {
+    fn extracts_mojo_run_tasks_for_debugging() {
         let task = |command: &str, args: &[&str]| TaskTemplate {
             label: "run".into(),
             command: command.into(),
@@ -873,11 +1012,15 @@ mod tests {
             cwd: None,
         };
         assert_eq!(
-            MojoExtension::task_source(&task("mojo", &["run", "main.mojo"])),
-            Some("main.mojo".into())
+            MojoExtension::task_mojo_run(&task("mojo", &["run", "main.mojo"])),
+            Some(MojoRunTask {
+                source: "main.mojo".into(),
+                build_args: Vec::new(),
+                program_args: Vec::new(),
+            })
         );
         assert_eq!(
-            MojoExtension::task_source(&task(
+            MojoExtension::task_mojo_run(&task(
                 "pixi",
                 &[
                     "run",
@@ -886,21 +1029,131 @@ mod tests {
                     "--executable",
                     "mojo",
                     "run",
-                    "main.mojo",
+                    "-O3",
+                    "--debug-level",
+                    "none",
+                    "-I",
+                    "/project/package",
+                    "$ZED_RELATIVE_FILE",
+                    "--only",
+                    "selected_test",
                 ],
             )),
-            Some("main.mojo".into())
+            Some(MojoRunTask {
+                source: "$ZED_RELATIVE_FILE".into(),
+                build_args: vec!["-I".into(), "/project/package".into()],
+                program_args: vec!["--only".into(), "selected_test".into()],
+            })
         );
         assert_eq!(
-            MojoExtension::task_source(&task(
-                "uv",
-                &["run", "--frozen", "mojo", "run", "main.mojo"],
+            MojoExtension::task_mojo_run(&task(
+                "/usr/local/bin/uv",
+                &[
+                    "run",
+                    "--frozen",
+                    "mojo",
+                    "run",
+                    "-Ilib",
+                    "main.🔥",
+                    "first",
+                    "--flag",
+                ],
             )),
-            Some("main.mojo".into())
+            Some(MojoRunTask {
+                source: "main.🔥".into(),
+                build_args: vec!["-Ilib".into()],
+                program_args: vec!["first".into(), "--flag".into()],
+            })
         );
         assert_eq!(
-            MojoExtension::task_source(&task("python", &["main.mojo"])),
-            None
+            MojoExtension::task_mojo_run(&task(
+                "/opt/mojo/bin/mojo.exe",
+                &["run", "-I", "looks-like.mojo", "$ZED_FILE"],
+            )),
+            Some(MojoRunTask {
+                source: "$ZED_FILE".into(),
+                build_args: vec!["-I".into(), "looks-like.mojo".into()],
+                program_args: Vec::new(),
+            })
         );
+        assert!(
+            MojoExtension::task_mojo_run(&task("python", &["mojo", "run", "main.mojo"])).is_none()
+        );
+        assert!(
+            MojoExtension::task_mojo_run(&task(
+                "pixi",
+                &[
+                    "run",
+                    "--manifest-path",
+                    "/project/pixi.toml",
+                    "--frozen",
+                    "--no-progress",
+                    "--executable",
+                    "mojo",
+                    "run",
+                    "main.mojo",
+                ],
+            ))
+            .is_none()
+        );
+        assert!(
+            MojoExtension::task_mojo_run(&task(
+                "uv",
+                &[
+                    "run",
+                    "--frozen",
+                    "--project",
+                    "/project",
+                    "mojo",
+                    "run",
+                    "main.mojo",
+                ],
+            ))
+            .is_none()
+        );
+        assert!(MojoExtension::task_mojo_run(&task("mojo", &["run", "--help"])).is_none());
+    }
+
+    #[test]
+    fn locator_preserves_compiler_and_program_arguments() {
+        let mut extension = MojoExtension;
+        let scenario = extension
+            .dap_locator_create_scenario(
+                DEBUG_LOCATOR_ID.into(),
+                TaskTemplate {
+                    label: "run".into(),
+                    command: "pixi".into(),
+                    args: [
+                        "run",
+                        "--frozen",
+                        "--no-progress",
+                        "--executable",
+                        "mojo",
+                        "run",
+                        "-I",
+                        "/project/package",
+                        "$ZED_FILE",
+                        "--mode",
+                        "fast",
+                    ]
+                    .into_iter()
+                    .map(str::to_string)
+                    .collect(),
+                    env: vec![("EXAMPLE".into(), "value".into())],
+                    cwd: Some("$ZED_WORKTREE_ROOT".into()),
+                },
+                "debug".into(),
+                DEBUG_ADAPTER_ID.into(),
+            )
+            .unwrap();
+        let config: Value = serde_json::from_str(&scenario.config).unwrap();
+        assert_eq!(config["mojoFile"], "$ZED_FILE");
+        assert_eq!(
+            config["buildArgs"],
+            serde_json::json!(["-I", "/project/package"])
+        );
+        assert_eq!(config["args"], serde_json::json!(["--mode", "fast"]));
+        assert_eq!(config["cwd"], "$ZED_WORKTREE_ROOT");
+        assert_eq!(config["env"]["EXAMPLE"], "value");
     }
 }
