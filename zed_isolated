@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Launch an isolated Zed instance: own config/extensions/data dirs and its own
+# TMPDIR (required by wasi-sdk clang when compiling dev-extension grammars).
+# Safe to run alongside your normal Zed — nothing outside the sandbox dir is touched.
+
+set -euo pipefail
+
+SANDBOX="${ZED_SANDBOX_DIR:-/tmp/zed-sandbox}"
+
+mkdir -p "$SANDBOX"/{config,data,state,cache,tmp}
+
+# nix-shell overrides TMPDIR with its own session dir and deletes it on exit,
+# so re-pin TMPDIR explicitly on the launched command itself.
+exec env \
+  XDG_CONFIG_HOME="$SANDBOX/config" \
+  XDG_DATA_HOME="$SANDBOX/data" \
+  XDG_STATE_HOME="$SANDBOX/state" \
+  XDG_CACHE_HOME="$SANDBOX/cache" \
+  nix-shell -p zed-editor --run "TMPDIR=$SANDBOX/tmp exec zeditor"
