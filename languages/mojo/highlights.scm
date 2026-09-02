@@ -16,12 +16,17 @@
   function: (attribute attribute: (identifier) @function.method))
 
 (call
+  function: (inferred_attribute attribute: (identifier) @function.method))
+
+(call
   function: (identifier) @function)
 
 (function_definition
   name: (identifier) @function)
 
 (attribute attribute: (identifier) @property)
+
+(inferred_attribute attribute: (identifier) @property)
 (type (identifier) @type)
 (generic_type (identifier) @type)
 
