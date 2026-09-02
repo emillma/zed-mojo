@@ -8,8 +8,8 @@ repository = "https://github.com/shuklaayush/zed-mojo"
 snippets = ["./snippets/mojo.json"]
 
 [grammars.mojo]
-repository = "https://github.com/shuklaayush/tree-sitter-mojo"
-rev = "b73aae96d1c9d24f7aaa68c953dbb436e89808d0"
+repository = "https://github.com/emillma/tree-sitter-mojo"
+rev = "b59b108b54328b14cb650aa210130e8efd34c8ba"
 
 [language_servers.mojo-lsp-server]
 name = "Mojo LSP"
