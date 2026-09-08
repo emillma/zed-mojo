@@ -48,7 +48,10 @@ jobs:
         working-directory: /tmp/mojo-grammar
         run: npm ci
 
+      - name: Install CLI dependencies
+        run: python3 -m pip install typer
+
       - name: Validate extension
         env:
           GRAMMAR_DIR: /tmp/mojo-grammar
-        run: scripts/check-all.sh
+        run: python3 scripts/cli.py check-all
