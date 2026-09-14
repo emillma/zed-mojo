@@ -832,9 +832,11 @@ impl zed::Extension for MojoExtension {
         if let Some(stdlib_source) = Self::stdlib_source_setting(worktree)
             && let Err(error) = Self::apply_stdlib_source(worktree, &mut spec, &stdlib_source)
         {
-            // Keep the language server working without the shadow home; the
-            // reason lands in the extension log.
-            eprintln!("mojo extension: ignoring `stdlib_source`: {error}");
+            // An explicitly configured stdlib_source that cannot be applied
+            // is a misconfiguration: fail loudly (Zed surfaces the error and
+            // shows the reason) instead of silently dead-ending definitions
+            // on the compiled std.mojoc.
+            return Err(format!("stdlib_source `{stdlib_source}`: {error}"));
         }
         Ok(zed::Command {
             command: spec.command,
