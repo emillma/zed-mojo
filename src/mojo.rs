@@ -18,6 +18,8 @@ printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' '<!DOCTYPE plist PUBLIC "
 /usr/bin/codesign -s - -f --entitlements "$entitlements" "$1"
 rm -f "$entitlements""#;
 
+const STDLIB_HOME_SCRIPT: &str = "set -eu\ncp \"$2\" \"$1/modular.cfg\"\nsed -i \"s|^import_path = .*|import_path = $3|\" \"$1/modular.cfg\"";
+
 struct MojoExtension;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -352,6 +354,81 @@ impl MojoExtension {
             .find_map(|(name, value)| (name == key).then_some(value))
     }
 
+    fn env_value(envs: &[(String, String)], key: &str) -> Option<String> {
+        envs.iter()
+            .find(|(name, _)| name == key)
+            .map(|(_, value)| value.clone())
+    }
+
+    fn resolve_worktree_path(worktree: &zed::Worktree, path: &str) -> String {
+        if path.starts_with('/') {
+            path.to_string()
+        } else {
+            format!("{}/{}", worktree.root_path(), path.trim_matches('/'))
+        }
+    }
+
+    fn stdlib_source_setting(worktree: &zed::Worktree) -> Option<String> {
+        let settings = LspSettings::for_worktree(LANGUAGE_SERVER_ID, worktree).ok()?;
+        settings
+            .settings
+            .as_ref()
+            .and_then(|settings| settings.get("stdlib_source"))
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .filter(|source| !source.is_empty())
+    }
+
+    /// Route the LSP's built-in `std` imports to a stdlib source tree.
+    ///
+    /// The SDK resolves `std` from the compiled package named as `import_path`
+    /// in `$MODULAR_HOME/modular.cfg`; `-I` cannot override it because the
+    /// built-in package shadows user search paths. A shadow SDK home whose
+    /// config points `import_path` at the source tree makes definitions
+    /// resolve there instead.
+    fn apply_stdlib_source(
+        worktree: &zed::Worktree,
+        spec: &mut CommandSpec,
+        stdlib_source: &str,
+    ) -> Result<()> {
+        let import_path = Self::resolve_worktree_path(worktree, stdlib_source);
+        let root = worktree.root_path();
+        let home = Self::env_value(&spec.envs, "MODULAR_HOME")
+            .or_else(|| Self::shell_env_value(worktree, "MODULAR_HOME"))
+            .ok_or_else(|| {
+                "stdlib_source needs a detected SDK home (MODULAR_HOME); use a root Pixi project or activate the SDK environment".to_string()
+            })?;
+        let home_relative = home
+            .strip_prefix(&format!("{root}/"))
+            .map(str::to_string)
+            .ok_or_else(|| {
+                format!("MODULAR_HOME `{home}` is outside the worktree, so its modular.cfg is unreadable; stdlib_source needs a project-local SDK")
+            })?;
+        worktree.read_text_file(&format!("{home_relative}/modular.cfg"))?;
+
+        let directory = Self::temp_directory("the stdlib-source SDK home")?;
+        Self::run_process(
+            ProcessCommand::new("/bin/sh").args([
+                "-c",
+                STDLIB_HOME_SCRIPT,
+                "zed-mojo-stdlib-home",
+                directory.as_str(),
+                home.as_str(),
+                import_path.as_str(),
+            ]),
+            "writing the stdlib-source shadow SDK home",
+        )?;
+        match spec
+            .envs
+            .iter_mut()
+            .find(|(name, _)| name == "MODULAR_HOME")
+        {
+            Some((_, value)) => *value = directory,
+            None => spec.envs.push(("MODULAR_HOME".into(), directory)),
+        }
+        Ok(())
+    }
+
     fn find_debug_adapter(worktree: &zed::Worktree) -> Option<DebugAdapterSpec> {
         // Prefer the current project SDK. A system lldb-dap does not load the
         // Mojo language plugin and must not supersede it.
@@ -571,21 +648,28 @@ impl MojoExtension {
         path.ends_with(".mojo") || path.ends_with(".🔥")
     }
 
-    fn debug_binary_path(source: &str) -> Result<String> {
+    fn temp_directory(purpose: &str) -> Result<String> {
         let mut command =
             ProcessCommand::new("/usr/bin/mktemp").args(["-d", "/tmp/zed-mojo.XXXXXXXXXX"]);
         let output = command.output()?;
         if output.status != Some(0) {
             return Err(format!(
-                "creating a temporary Mojo debug directory failed with status {:?}: {}",
+                "creating a temporary directory for {purpose} failed with status {:?}: {}",
                 output.status,
                 String::from_utf8_lossy(&output.stderr).trim()
             ));
         }
         let directory = String::from_utf8_lossy(&output.stdout).trim().to_string();
         if !directory.starts_with("/tmp/zed-mojo.") || directory.contains(['\n', '\r']) {
-            return Err("`mktemp` returned an unexpected Mojo debug directory".into());
+            return Err(format!(
+                "`mktemp` returned an unexpected directory for {purpose}"
+            ));
         }
+        Ok(directory)
+    }
+
+    fn debug_binary_path(source: &str) -> Result<String> {
+        let directory = Self::temp_directory("the Mojo debug binary")?;
         let stem = source
             .rsplit(['/', '\\'])
             .next()
@@ -740,11 +824,18 @@ impl zed::Extension for MojoExtension {
         worktree: &zed::Worktree,
     ) -> Result<zed::Command> {
         Self::validate_language_server(language_server_id)?;
-        let Some(spec) = Self::find_command(worktree, LSP_BINARY) else {
+        let Some(mut spec) = Self::find_command(worktree, LSP_BINARY) else {
             return Err(format!(
                 "`{LSP_BINARY}` was not found. Install Mojo/MAX and activate it on PATH, use a root Pixi/uv worktree, or configure `lsp.{LANGUAGE_SERVER_ID}.binary.path`."
             ));
         };
+        if let Some(stdlib_source) = Self::stdlib_source_setting(worktree)
+            && let Err(error) = Self::apply_stdlib_source(worktree, &mut spec, &stdlib_source)
+        {
+            // Keep the language server working without the shadow home; the
+            // reason lands in the extension log.
+            eprintln!("mojo extension: ignoring `stdlib_source`: {error}");
+        }
         Ok(zed::Command {
             command: spec.command,
             args: spec.args,

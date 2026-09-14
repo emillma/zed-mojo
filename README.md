@@ -45,6 +45,34 @@ the executable explicitly:
 }
 ```
 
+### Stdlib source navigation
+
+The SDK ships the stdlib only as a compiled `std.mojoc`, so the language
+server cannot jump to definitions of stdlib symbols (`Dict`, `List`, …).
+The `stdlib_source` setting routes the built-in `std` imports to a stdlib
+source tree instead: the extension derives a shadow `MODULAR_HOME` whose
+`modular.cfg` points `import_path` at that directory, and definitions
+resolve into the source files.
+
+```json
+{
+  "lsp": {
+    "mojo-lsp-server": {
+      "settings": {
+        "stdlib_source": "programs/modular/Mojo/stdlib"
+      }
+    }
+  }
+}
+```
+
+The path may be worktree-relative (as above) or absolute, and must be the
+directory *containing* the `std` package. The source tree must match the
+installed SDK's Mojo version, or definitions and diagnostics will diverge
+from the compiled stdlib. If no project-local SDK home can be found (the
+shadow config is derived from it), the setting is ignored and the reason is
+written to the extension log.
+
 ## Format and run
 
 For an activated SDK:

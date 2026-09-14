@@ -67,10 +67,16 @@ assert capabilities[1] == {
         "**",
     ],
 }
-assert capabilities[2]["kind"] == "process:exec"
-assert capabilities[2]["command"] == "/bin/sh"
-assert capabilities[2]["args"][0] == "-c"
-assert capabilities[2]["args"][2:] == ["zed-mojo-codesign", "*"]
+scripts = {
+    capability["args"][2]: capability
+    for capability in capabilities
+    if capability.get("kind") == "process:exec"
+    and len(capability.get("args", [])) > 2
+    and capability["args"][0] == "-c"
+}
+assert scripts["zed-mojo-codesign"]["args"][3:] == ["*"]
+assert scripts["zed-mojo-stdlib-home"]["args"][3:] == ["*", "*", "*"]
+assert "import_path" in scripts["zed-mojo-stdlib-home"]["args"][1]
 
 for relative in extension.get("snippets", []):
     snippets = load_json(ROOT / relative)
