@@ -13,9 +13,11 @@ Exit code 0 = expectation met: a `.mojo` source file with `--stdlib` or
 `--shadow` derives a shadow SDK home from the real modular.cfg with
 import_path repointed at the stdlib clone (what the extension's
 `stdlib_source` setting does), so the full mechanism is checkable from the
-CLI without Zed.
+CLI without Zed. `--lsp <path>` runs a different server binary (e.g. a
+self-built mojo-lsp-server) — combine with `-- --search-paths <dir>` to
+test the upstreamable flag instead of the shadow home.
 
-Usage: python3 scripts/test-lsp-goto-def.py [--stdlib | --shadow] [-- extra LSP args]
+Usage: python3 scripts/test-lsp-goto-def.py [--stdlib | --shadow] [--lsp <path>] [-- extra LSP args]
 """
 import json
 import os
@@ -77,7 +79,10 @@ def main() -> int:
         env["MODULAR_HOME"] = make_shadow_home()
 
     extra = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
-    args = [LSP] + (["-I", STDLIB] if with_stdlib else []) + extra
+    lsp = LSP
+    if "--lsp" in sys.argv:
+        lsp = sys.argv[sys.argv.index("--lsp") + 1]
+    args = [lsp] + (["-I", STDLIB] if with_stdlib else []) + extra
     proc = subprocess.Popen(
         args,
         stdin=subprocess.PIPE,
