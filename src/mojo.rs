@@ -18,7 +18,7 @@ printf '%s\n' '<?xml version="1.0" encoding="UTF-8"?>' '<!DOCTYPE plist PUBLIC "
 /usr/bin/codesign -s - -f --entitlements "$entitlements" "$1"
 rm -f "$entitlements""#;
 
-const STDLIB_HOME_SCRIPT: &str = "set -eu\ncp \"$2\" \"$1/modular.cfg\"\nsed -i \"s|^import_path = .*|import_path = $3|\" \"$1/modular.cfg\"";
+const STDLIB_HOME_SCRIPT: &str = "set -eu\ncp \"$2\" \"$1/modular.cfg\"\nsed -i -e \"s|^import_path = .*|import_path = $3|\" -e \"s|^cache_dir = .*|cache_dir = $1/cache|\" \"$1/modular.cfg\"\nmkdir -p \"$1/cache\"";
 
 struct MojoExtension;
 
