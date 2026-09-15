@@ -67,11 +67,12 @@ resolve into the source files.
 ```
 
 The path may be worktree-relative (as above) or absolute, and must be the
-directory *containing* the `std` package. The source tree must match the
+directory _containing_ the `std` package. The source tree must match the
 installed SDK's Mojo version, or definitions and diagnostics will diverge
-from the compiled stdlib. If no project-local SDK home can be found (the
-shadow config is derived from it), the setting is ignored and the reason is
-written to the extension log.
+from the compiled stdlib. The shadow config is derived from the detected
+SDK home (`MODULAR_HOME` of a root Pixi project or the activated
+environment); if none is found or its `modular.cfg` is missing, the
+language server fails to start with the reason in the error.
 
 ## Format and run
 

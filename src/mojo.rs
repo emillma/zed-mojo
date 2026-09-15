@@ -392,19 +392,14 @@ impl MojoExtension {
         stdlib_source: &str,
     ) -> Result<()> {
         let import_path = Self::resolve_worktree_path(worktree, stdlib_source);
-        let root = worktree.root_path();
         let home = Self::env_value(&spec.envs, "MODULAR_HOME")
             .or_else(|| Self::shell_env_value(worktree, "MODULAR_HOME"))
             .ok_or_else(|| {
                 "stdlib_source needs a detected SDK home (MODULAR_HOME); use a root Pixi project or activate the SDK environment".to_string()
             })?;
-        let home_relative = home
-            .strip_prefix(&format!("{root}/"))
-            .map(str::to_string)
-            .ok_or_else(|| {
-                format!("MODULAR_HOME `{home}` is outside the worktree, so its modular.cfg is unreadable; stdlib_source needs a project-local SDK")
-            })?;
-        worktree.read_text_file(&format!("{home_relative}/modular.cfg"))?;
+        // The SDK cfg is read by the shadow-home script at the filesystem
+        // level: worktree.read_text_file cannot see gitignored paths such as
+        // `.pixi/...` (no worktree entry), but the SDK may live anywhere.
 
         let directory = Self::temp_directory("the stdlib-source SDK home")?;
         Self::run_process(
