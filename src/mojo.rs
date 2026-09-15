@@ -401,6 +401,7 @@ impl MojoExtension {
         // level: worktree.read_text_file cannot see gitignored paths such as
         // `.pixi/...` (no worktree entry), but the SDK may live anywhere.
 
+        let home_cfg = format!("{home}/modular.cfg");
         let directory = Self::temp_directory("the stdlib-source SDK home")?;
         Self::run_process(
             ProcessCommand::new("/bin/sh").args([
@@ -408,7 +409,7 @@ impl MojoExtension {
                 STDLIB_HOME_SCRIPT,
                 "zed-mojo-stdlib-home",
                 directory.as_str(),
-                home.as_str(),
+                home_cfg.as_str(),
                 import_path.as_str(),
             ]),
             "writing the stdlib-source shadow SDK home",
