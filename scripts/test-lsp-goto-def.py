@@ -29,7 +29,7 @@ import tempfile
 
 MONO = "/home/emil/mono"
 LSP = MONO + "/.pixi/envs/default/bin/mojo-lsp-server"
-STDLIB = MONO + "/programs/modular/Mojo/stdlib"
+STDLIB = MONO + "/submodules/modular/Mojo/stdlib"
 TEST_DIR = "/tmp/mojo-lsp-goto-def"
 TEST_PATH = TEST_DIR + "/test.mojo"
 
