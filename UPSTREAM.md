@@ -3,10 +3,16 @@
 - **Upstream repo**: https://github.com/shuklaayush/zed-mojo
   (remote `upstream-shuklaayush`)
 - **Origin** (local fork): git@github.com:emillma/zed-mojo.git
-- **Pinned base rev**: `afbaac82c1087e8b68bec75886b8cd8b2fd4bfa9`
-  (HEAD of `main`, the pre-restructure state)
-- **Local branch**: `mono-local`
-- **Local changes** (mono-local, 2 commits): 2079e9b [Remove evicted mojo_fixer files - folded into repo scripts/] and 20a3d17 [Restructure: Typer CLI replaces check scripts; env tooling to scripts/; CI repointed]. See git log mono-local. `2079e9b` — "Remove evicted mojo_fixer files"
-  (deletes `ensure-mojo-debugger-libs.sh` and `mojo-env-notes.md`, which were
-  folded into this repo's `scripts/` from the former `tools/mojo_fixer/`).
-- **Last synced**: 2026-09-07
+- **Pinned base rev**: `a4dfd0d` (upstream `main` HEAD, "fix: follow upstream
+  mojo grammar" — `main` stays pristine here, fast-forward only; the fork's
+  old local-work main `afbaac8` was flattened 2026-09-18, its commits live on
+  in `mono-local`'s history)
+- **Local branch**: `mono-local` (all local work; `main` mirrors
+  `upstream-shuklaayush/main`)
+- **Local changes**: `mono-local` is 21 commits ahead of the shuklaayush base —
+  the repo restructure (Typer CLI replaces check scripts, env tooling to
+  `scripts/`, CI repointed), the shadow-home / LSP harness line, and the
+  goto-def test path fix. See `git log upstream-shuklaayush/main..mono-local`.
+  NOTE: `mono-local` still sits on the pre-flatten base — rebase onto the
+  re-pinned `main` at the next sync.
+- **Last synced**: 2026-09-18 (main re-pinned; mono-local rebase pending)
