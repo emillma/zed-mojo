@@ -15,6 +15,10 @@ rev = "b59b108b54328b14cb650aa210130e8efd34c8ba"
 name = "Mojo LSP"
 languages = ["Mojo"]
 
+[language_servers.mojo-lsp]
+name = "Mojo LSP (Rust)"
+languages = ["Mojo"]
+
 [debug_adapters.mojo-lldb]
 schema_path = "debug_adapter_schemas/mojo-lldb.json"
 

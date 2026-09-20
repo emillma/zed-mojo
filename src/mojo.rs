@@ -7,8 +7,12 @@ use zed_extension_api::{
 };
 
 const LANGUAGE_SERVER_ID: &str = "mojo-lsp-server";
+/// The Rust tree-sitter front end (mono `src/mojo-lsp/`), selectable
+/// alongside the stock server; the default stays `mojo-lsp-server`.
+const RUST_LANGUAGE_SERVER_ID: &str = "mojo-lsp";
 const DEBUG_ADAPTER_ID: &str = "mojo-lldb";
 const LSP_BINARY: &str = "mojo-lsp-server";
+const RUST_LSP_BINARY: &str = "mojo-lsp";
 const LEGACY_DAP_BINARY: &str = "mojo-lldb-dap";
 const DEBUG_LOCATOR_ID: &str = "mojo-source";
 const BUILD_SCRIPT: &str = "set -eu\ncd \"$1\"\nshift\nexec \"$@\"";
@@ -789,11 +793,12 @@ impl MojoExtension {
     }
 
     fn validate_language_server(language_server_id: &zed::LanguageServerId) -> Result<()> {
-        if language_server_id.as_ref() == LANGUAGE_SERVER_ID {
+        let id = language_server_id.as_ref();
+        if id == LANGUAGE_SERVER_ID || id == RUST_LANGUAGE_SERVER_ID {
             Ok(())
         } else {
             Err(format!(
-                "Mojo extension does not support language server `{language_server_id}`"
+                "Mojo extension does not support language server `{id}` (supported: `{LANGUAGE_SERVER_ID}`, `{RUST_LANGUAGE_SERVER_ID}`)"
             ))
         }
     }
@@ -820,19 +825,28 @@ impl zed::Extension for MojoExtension {
         worktree: &zed::Worktree,
     ) -> Result<zed::Command> {
         Self::validate_language_server(language_server_id)?;
-        let Some(mut spec) = Self::find_command(worktree, LSP_BINARY) else {
+        let (server_id, binary) = match language_server_id.as_ref() {
+            RUST_LANGUAGE_SERVER_ID => (RUST_LANGUAGE_SERVER_ID, RUST_LSP_BINARY),
+            _ => (LANGUAGE_SERVER_ID, LSP_BINARY),
+        };
+        let Some(mut spec) = Self::find_command(worktree, binary) else {
             return Err(format!(
-                "`{LSP_BINARY}` was not found. Install Mojo/MAX and activate it on PATH, use a root Pixi/uv worktree, or configure `lsp.{LANGUAGE_SERVER_ID}.binary.path`."
+                "`{binary}` was not found. Install Mojo/MAX and activate it on PATH, use a root Pixi/uv worktree, or configure `lsp.{server_id}.binary.path`."
             ));
         };
-        if let Some(stdlib_source) = Self::stdlib_source_setting(worktree)
-            && let Err(error) = Self::apply_stdlib_source(worktree, &mut spec, &stdlib_source)
-        {
-            // An explicitly configured stdlib_source that cannot be applied
-            // is a misconfiguration: fail loudly (Zed surfaces the error and
-            // shows the reason) instead of silently dead-ending definitions
-            // on the compiled std.mojoc.
-            return Err(format!("stdlib_source `{stdlib_source}`: {error}"));
+        // stdlib_source is the stock server's mechanism (it compiles a
+        // std.mojoc); the Rust front end takes search paths from the
+        // document location instead.
+        if server_id == LANGUAGE_SERVER_ID {
+            if let Some(stdlib_source) = Self::stdlib_source_setting(worktree)
+                && let Err(error) = Self::apply_stdlib_source(worktree, &mut spec, &stdlib_source)
+            {
+                // An explicitly configured stdlib_source that cannot be applied
+                // is a misconfiguration: fail loudly (Zed surfaces the error and
+                // shows the reason) instead of silently dead-ending definitions
+                // on the compiled std.mojoc.
+                return Err(format!("stdlib_source `{stdlib_source}`: {error}"));
+            }
         }
         Ok(zed::Command {
             command: spec.command,
